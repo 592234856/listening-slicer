@@ -1,0 +1,16 @@
+# Node 构建产物
+app/node_modules/
+app/dist/
+app/release/
+
+# Python 虚拟环境与缓存
+engine/.venv/
+__pycache__/
+*.py[cod]
+
+# 本地测试工具与数据（大音频/中间结果，CI 打包不需要）
+tools/
+*.log
+
+# IDE 本地配置
+.trae/

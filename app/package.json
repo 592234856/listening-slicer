@@ -1,0 +1,98 @@
+{
+  "name": "listening-slicer",
+  "version": "0.1.0",
+  "description": "听力音频智能切分与精听课件生成",
+  "main": "dist/main/main.js",
+  "author": "yp",
+  "license": "MIT",
+  "scripts": {
+    "dev": "vite",
+    "build:renderer": "tsc && vite build",
+    "build:main": "tsc -p tsconfig.main.json",
+    "build": "npm run build:renderer && npm run build:main",
+    "electron:dev": "npm run build:main && electron .",
+    "electron:pack": "npm run build && electron-builder",
+    "dist": "npm run build && electron-builder"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "@vitejs/plugin-react": "^4.2.0",
+    "electron": "^30.0.0",
+    "electron-builder": "^24.13.0",
+    "typescript": "^5.4.0",
+    "vite": "^5.2.0"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "wavesurfer.js": "^7.7.0"
+  },
+  "build": {
+    "appId": "com.yp.listeningslicer",
+    "productName": "听力精切",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "../engine",
+        "to": "engine",
+        "filter": [
+          "main.py",
+          "parser.py",
+          "asr_align.py",
+          "matcher.py",
+          "cutter.py",
+          "pdf_reader.py",
+          "ai_parser.py",
+          "requirements.txt"
+        ]
+      }
+    ],
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": ["x64", "arm64"]
+        },
+        {
+          "target": "zip",
+          "arch": ["x64", "arm64"]
+        }
+      ],
+      "category": "public.app-category.education",
+      "extraResources": [
+        {
+          "from": "../assets/uv",
+          "to": "uv",
+          "filter": ["uv-arm64", "uv-x64"]
+        }
+      ]
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ],
+      "extraResources": [
+        {
+          "from": "../assets/uv",
+          "to": "uv",
+          "filter": ["uv.exe"]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true
+    }
+  }
+}

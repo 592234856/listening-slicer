@@ -1,0 +1,128 @@
+{
+  "version": 1,
+  "title": "冒烟测试",
+  "source_audio": "source.mp3",
+  "duration": 45.384,
+  "materials": [
+    {
+      "id": 1,
+      "title": "Text 1",
+      "text": "Excuse me, can you tell me how much the shirt is? Yes, it's nine fifteen.",
+      "start": 5.81,
+      "end": 11.78,
+      "clip": "clips/material_01.mp3",
+      "match_rate": 0.875,
+      "needs_review": false,
+      "sentences": [
+        {
+          "text": "Excuse me, can you tell me how much the shirt is?",
+          "speaker": "M",
+          "start": 5.96,
+          "end": 8.88,
+          "matched": true
+        },
+        {
+          "text": "Yes, it's nine fifteen.",
+          "speaker": "W",
+          "start": 10.57,
+          "end": 11.53,
+          "matched": true
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Text 2",
+      "text": "Hi, Tom. Are you going to the school concert tonight? I'd love to, but I have to finish my history report.",
+      "start": 13.93,
+      "end": 22.91,
+      "clip": "clips/material_02.mp3",
+      "match_rate": 1.0,
+      "needs_review": false,
+      "sentences": [
+        {
+          "text": "Hi, Tom.",
+          "speaker": "W",
+          "start": 14.08,
+          "end": 15.81,
+          "matched": true
+        },
+        {
+          "text": "Are you going to the school concert tonight?",
+          "speaker": "W",
+          "start": 15.81,
+          "end": 17.77,
+          "matched": true
+        },
+        {
+          "text": "I'd love to, but I have to finish my history report.",
+          "speaker": "M",
+          "start": 19.78,
+          "end": 22.66,
+          "matched": true
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Text 3",
+      "text": "Good morning, sir. What can I do for you? I'd like to buy a ticket to London. Is there a direct train? Yes, there is one at nine thirty. Great. I'll take it.",
+      "start": 24.06,
+      "end": 42.13,
+      "clip": "clips/material_03.mp3",
+      "match_rate": 0.9429,
+      "needs_review": false,
+      "sentences": [
+        {
+          "text": "Good morning, sir.",
+          "speaker": "W",
+          "start": 24.21,
+          "end": 25.51,
+          "matched": true
+        },
+        {
+          "text": "What can I do for you?",
+          "speaker": "W",
+          "start": 26.33,
+          "end": 27.61,
+          "matched": true
+        },
+        {
+          "text": "I'd like to buy a ticket to London.",
+          "speaker": "M",
+          "start": 29.57,
+          "end": 31.17,
+          "matched": true
+        },
+        {
+          "text": "Is there a direct train?",
+          "speaker": "M",
+          "start": 31.94,
+          "end": 33.4,
+          "matched": true
+        },
+        {
+          "text": "Yes, there is one at nine thirty.",
+          "speaker": "W",
+          "start": 35.24,
+          "end": 36.58,
+          "matched": true
+        },
+        {
+          "text": "Great.",
+          "speaker": "M",
+          "start": 36.58,
+          "end": 40.06,
+          "matched": true
+        },
+        {
+          "text": "I'll take it.",
+          "speaker": "M",
+          "start": 40.06,
+          "end": 41.88,
+          "matched": true
+        }
+      ]
+    }
+  ]
+}
