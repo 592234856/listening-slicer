@@ -10,7 +10,7 @@ if (!window.api) {
   (async () => {
     try {
       const res = await fetch('/mock/courseware.json');
-      const cw = await res.json();
+      let cwStore = await res.json(); // 可变存储：模拟保存后再次打开能读到新值
       (window as any).api = {
         selectTextFile: async () => null,
         selectAudioFile: async () => null,
@@ -20,11 +20,14 @@ if (!window.api) {
         parseTextAi: async () => ({ materials: [] }),
         aiTest: async () => ({ ok: true, model_available: true, model_count: -1 }),
         readText: async () => ({ text: '', is_scanned: false, garbage: false, ocr_used: false }),
-        reExport: async () => ({ courseware_path: '/mock/courseware.json', courseware: cw }),
-        process: async () => ({ courseware_path: '/mock/courseware.json', courseware: cw }),
+        reExport: async () => ({ courseware_path: '/mock/courseware.json', courseware: cwStore }),
+        process: async () => ({ courseware_path: '/mock/courseware.json', courseware: cwStore }),
         cancel: async () => ({ ok: true }),
-        loadCourseware: async () => ({ path: '/mock/courseware.json', courseware: cw }),
-        saveCourseware: async () => ({ ok: true }),
+        loadCourseware: async () => ({ path: '/mock/courseware.json', courseware: cwStore }),
+        saveCourseware: async (_dir: string, cw: any) => {
+          cwStore = cw;
+          return { ok: true };
+        },
         openPath: async () => '',
         onProgress: () => () => {},
         engineStatus: async () => ({ ready: true, installing: false, error: '' }),
@@ -33,7 +36,7 @@ if (!window.api) {
       };
       // 调试：#courseware 直达课件页
       if (location.hash === '#courseware') {
-        window.dispatchEvent(new CustomEvent('mock:goto-courseware', { detail: cw }));
+        window.dispatchEvent(new CustomEvent('mock:goto-courseware', { detail: cwStore }));
       }
     } catch {
       /* 无 mock 数据 */
@@ -107,6 +110,21 @@ export default function App() {
     window.addEventListener('mock:goto-courseware', handler);
     return () => window.removeEventListener('mock:goto-courseware', handler);
   }, []);
+
+  // 调试/快捷方式：#open=<课件目录> 启动后直接进入精听界面
+  useEffect(() => {
+    if (!engineReady || !window.api?.loadCourseware) return;
+    const m = location.hash.match(/^#open=(.+)$/);
+    if (!m) return;
+    const dir = decodeURIComponent(m[1]);
+    window.api
+      .loadCourseware(dir)
+      .then((r) => {
+        setResult({ coursewarePath: r.path, courseware: r.courseware, coursewareDir: dir });
+        setStage('courseware');
+      })
+      .catch(() => setError('无法打开课件目录，请确认其中有 courseware.json'));
+  }, [engineReady]);
 
   const handleStart = useCallback(async (params: {
     text: string;

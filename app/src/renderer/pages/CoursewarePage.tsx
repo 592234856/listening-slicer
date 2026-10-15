@@ -148,6 +148,8 @@ function MaterialDetail({ material, courseware, coursewareDir, onCoursewareChang
   const [editStart, setEditStart] = useState(material.start);
   const [editEnd, setEditEnd] = useState(material.end);
   const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveErr, setSaveErr] = useState('');
   // 所有材料都可以手动微调起止时间；需确认的默认展开
   const [showAdjust, setShowAdjust] = useState(material.needs_review);
 
@@ -290,18 +292,39 @@ function MaterialDetail({ material, courseware, coursewareDir, onCoursewareChang
     [loopSentIdx, ready],
   );
 
+  // 保存调整：写入 courseware.json + 句子时间同步收进新边界 + 自动重切切片音频，
+  // 一步到位，保证「保存后即生效」（重开课件、单句循环、切片文件都用新时间）
   const saveAdjust = useCallback(async () => {
+    if (saving) return;
     const cw: Courseware = JSON.parse(JSON.stringify(courseware));
     const m = cw.materials.find((x) => x.id === material.id);
     if (!m) return;
     m.start = editStart;
     m.end = editEnd;
     m.needs_review = false;
-    await window.api?.saveCourseware(coursewareDir, cw);
-    onCoursewareChange(cw);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
-  }, [courseware, coursewareDir, material.id, editStart, editEnd, onCoursewareChange]);
+    // 句子时间仍指向源音频绝对位置；材料边界收窄后，越界句子收进新范围，
+    // 否则单句循环/单句播放仍会播到调整前的音频位置
+    for (const s of m.sentences) {
+      s.start = Math.min(Math.max(s.start, m.start), m.end);
+      s.end = Math.min(Math.max(s.end, m.start), m.end);
+    }
+    setSaving(true);
+    setSaveErr('');
+    try {
+      await window.api?.saveCourseware(coursewareDir, cw);
+      onCoursewareChange(cw);
+      // 自动重切切片音频（通常几秒到几十秒，与总时长有关）
+      if (window.api?.reExport) {
+        await window.api.reExport({ out_dir: coursewareDir, courseware: cw });
+      }
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    } catch (e: any) {
+      setSaveErr(e?.message || String(e));
+    } finally {
+      setSaving(false);
+    }
+  }, [courseware, coursewareDir, material.id, editStart, editEnd, onCoursewareChange, saving]);
 
   const checkDictation = (idx: number) => {
     setDictChecked((p) => ({ ...p, [idx]: true }));
@@ -413,7 +436,7 @@ function MaterialDetail({ material, courseware, coursewareDir, onCoursewareChang
           <span>
             {material.needs_review
               ? '⚠ 该段匹配率较低，请人工确认起止时间：'
-              : '微调本段起止时间（秒），保存后可重新导出切片：'}
+              : '微调本段起止时间（秒），保存后立即生效（自动重切切片音频）：'}
           </span>
           <label>
             起点(秒)
@@ -460,9 +483,10 @@ function MaterialDetail({ material, courseware, coursewareDir, onCoursewareChang
           >
             试听终点
           </button>
-          <button className="primary" onClick={saveAdjust}>
-            {saved ? '✓ 已保存' : '保存调整'}
+          <button className="primary" onClick={saveAdjust} disabled={saving}>
+            {saving ? '保存并重切中…' : saved ? '✓ 已保存并重切' : '保存调整'}
           </button>
+          {saveErr && <span style={{ color: '#ff8080', fontSize: 12 }}>{saveErr}</span>}
         </div>
       )}
 
