@@ -14,6 +14,8 @@ interface Props {
     cutNotes: string;
     materials: ParsedMaterial[] | null;
   }) => void;
+  /** 打开已有课件文件夹，直接进入精听界面 */
+  onOpenCourseware: () => Promise<void>;
   error: string;
 }
 
@@ -86,7 +88,7 @@ function defaultAi(): AiSettings {
   };
 }
 
-export default function ImportPage({ onStart, error }: Props) {
+export default function ImportPage({ onStart, onOpenCourseware, error }: Props) {
   const [text, setText] = useState('');
   const [textPath, setTextPath] = useState('');
   const [isBinary, setIsBinary] = useState(false); // pdf / docx 走引擎解析
@@ -98,6 +100,7 @@ export default function ImportPage({ onStart, error }: Props) {
   const [ocrMsg, setOcrMsg] = useState('');
   const [fallbackMsg, setFallbackMsg] = useState('');
   const [busy, setBusy] = useState(false);
+  const [openBusy, setOpenBusy] = useState(false);
   const [localErr, setLocalErr] = useState('');
   const [ai, setAi] = useState<AiSettings>(loadAiSettings);
   const [testStatus, setTestStatus] = useState<{ state: 'idle' | 'testing' | 'ok' | 'fail'; msg: string }>({
@@ -327,8 +330,30 @@ export default function ImportPage({ onStart, error }: Props) {
 
   const fileExt = textPath.split('.').pop()?.toUpperCase() || '';
 
+  // 打开已有课件：选文件夹 → 读 courseware.json → 直达精听界面
+  const openCourseware = async () => {
+    setLocalErr('');
+    setOpenBusy(true);
+    try {
+      await onOpenCourseware();
+    } finally {
+      setOpenBusy(false);
+    }
+  };
+
   return (
     <div className="import-page">
+      <div className="step-block open-courseware-block">
+        <div className="file-row" style={{ marginBottom: 0 }}>
+          <button className="primary" onClick={openCourseware} disabled={openBusy}>
+            {openBusy ? '正在打开…' : '打开已有课件'}
+          </button>
+          <div className="hint" style={{ alignSelf: 'center' }}>
+            之前生成过课件？选择课件文件夹（含 courseware.json）直接进入精听界面，支持单句循环、听写、调整起止时间，无需重新处理
+          </div>
+        </div>
+      </div>
+
       <div className="step-block">
         <h3>1. 试卷文稿（中文题干 + 英文听力原文，支持 PDF）</h3>
         <div className="file-row">

@@ -14,7 +14,7 @@ if (!window.api) {
       (window as any).api = {
         selectTextFile: async () => null,
         selectAudioFile: async () => null,
-        selectOutDir: async () => null,
+        selectOutDir: async () => ({ path: '/mock' }),
         ping: async () => ({ ok: true, version: 'mock' }),
         parseText: async () => ({ materials: [] }),
         parseTextAi: async () => ({ materials: [] }),
@@ -174,6 +174,25 @@ export default function App() {
     setError('');
   }, []);
 
+  // 打开已有课件：选择课件文件夹（含 courseware.json）直接进入精听界面
+  const handleOpenCourseware = useCallback(async () => {
+    if (!window.api) return;
+    const dir = await window.api.selectOutDir();
+    if (!dir) return;
+    setError('');
+    try {
+      const r = await window.api.loadCourseware(dir.path);
+      setResult({
+        coursewarePath: r.path,
+        courseware: r.courseware,
+        coursewareDir: dir.path,
+      });
+      setStage('courseware');
+    } catch {
+      setError('该文件夹中没有找到 courseware.json，请选择之前生成课件时保存的文件夹');
+    }
+  }, []);
+
   const handleRetryBoot = useCallback(() => {
     setBootErr('');
     setBootLogs([]);
@@ -198,7 +217,9 @@ export default function App() {
         )}
         {engineReady === true && (
           <>
-            {stage === 'import' && <ImportPage onStart={handleStart} error={error} />}
+            {stage === 'import' && (
+              <ImportPage onStart={handleStart} onOpenCourseware={handleOpenCourseware} error={error} />
+            )}
             {stage === 'processing' && (
               <ProgressPage progress={progress} onCancel={handleCancel} />
             )}
