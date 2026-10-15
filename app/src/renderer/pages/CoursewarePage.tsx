@@ -302,11 +302,18 @@ function MaterialDetail({ material, courseware, coursewareDir, onCoursewareChang
     m.start = editStart;
     m.end = editEnd;
     m.needs_review = false;
-    // 句子时间仍指向源音频绝对位置；材料边界收窄后，越界句子收进新范围，
-    // 否则单句循环/单句播放仍会播到调整前的音频位置
+    // 句子时间仍指向源音频绝对位置，分两种情况同步：
+    // 1) 边界往里收：越界句子收进新范围，否则单句循环仍播到调整前的位置
     for (const s of m.sentences) {
       s.start = Math.min(Math.max(s.start, m.start), m.end);
       s.end = Math.min(Math.max(s.end, m.start), m.end);
+    }
+    // 2) 边界往外扩：边缘句子吸收新增区间——起点调早说明开头有漏听内容
+    //    （归入第一句），终点调晚说明结尾有漏听（归入最后一句）；
+    //    中间句子时间保持不动，它们对应音频里的真实位置，整体后延会错位
+    if (m.sentences.length) {
+      if (editStart < material.start) m.sentences[0].start = m.start;
+      if (editEnd > material.end) m.sentences[m.sentences.length - 1].end = m.end;
     }
     setSaving(true);
     setSaveErr('');
