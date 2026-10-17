@@ -152,9 +152,18 @@ function MaterialDetail({ material, courseware, coursewareDir, onCoursewareChang
   const [saveErr, setSaveErr] = useState('');
   // 所有材料都可以手动微调起止时间；需确认的默认展开
   const [showAdjust, setShowAdjust] = useState(material.needs_review);
+  // 单句时间微调编辑器（逐句手动断句）
+  const [editSentIdx, setEditSentIdx] = useState<number | null>(null);
+  const [sEditStart, setSEditStart] = useState(0);
+  const [sEditEnd, setSEditEnd] = useState(0);
+  const [sSaving, setSSaving] = useState(false);
+  const [sSaved, setSSaved] = useState(false);
+  const [sSaveErr, setSSaveErr] = useState('');
 
   const loopRef = useRef<number | null>(null);
   const playingSentRef = useRef<number | null>(null);
+  // 试听编辑中句子的停止点（只用于预览，不改动已保存数据）
+  const previewStopRef = useRef<number | null>(null);
   loopRef.current = loopSentIdx;
   playingSentRef.current = playingSentIdx;
   // 最新 material 的 ref：监视器回调只注册一次，直接闭包 material
@@ -210,6 +219,12 @@ function MaterialDetail({ material, courseware, coursewareDir, onCoursewareChang
           lastShown = t;
           setCurTime(t);
         }
+        // 试听编辑区间：到编辑终点自动停（优先于其他播放逻辑）
+        const ps = previewStopRef.current;
+        if (ps != null && t >= ps - 0.05) {
+          ws.pause();
+          previewStopRef.current = null;
+        }
         const mat = materialRef.current;
         const li = loopRef.current;
         if (li != null) {
@@ -247,6 +262,7 @@ function MaterialDetail({ material, courseware, coursewareDir, onCoursewareChang
   const togglePlay = useCallback(() => {
     const ws = wsRef.current;
     if (!ws || !ready) return;
+    previewStopRef.current = null;
     if (ws.isPlaying()) {
       ws.pause();
     } else {
@@ -263,6 +279,7 @@ function MaterialDetail({ material, courseware, coursewareDir, onCoursewareChang
       const ws = wsRef.current;
       const s = materialRef.current.sentences[idx];
       if (!ws || !s || !ready) return;
+      previewStopRef.current = null;
       setLoopSentIdx(null);
       setPlayingSentIdx(idx);
       if (s.end - s.start >= 0.15) ws.setTime(s.start);
@@ -276,6 +293,7 @@ function MaterialDetail({ material, courseware, coursewareDir, onCoursewareChang
     (idx: number) => {
       const ws = wsRef.current;
       if (!ws || !ready) return;
+      previewStopRef.current = null;
       if (loopSentIdx === idx) {
         // 已在循环该句 → 停止
         setLoopSentIdx(null);
@@ -332,6 +350,72 @@ function MaterialDetail({ material, courseware, coursewareDir, onCoursewareChang
       setSaving(false);
     }
   }, [courseware, coursewareDir, material.id, editStart, editEnd, onCoursewareChange, saving]);
+
+  // 打开/收起某句的时间编辑器（自动断句不准时手动微调）
+  const toggleSentEditor = (idx: number) => {
+    if (editSentIdx === idx) {
+      setEditSentIdx(null);
+      return;
+    }
+    const s = materialRef.current.sentences[idx];
+    if (!s) return;
+    setSEditStart(s.start);
+    setSEditEnd(s.end);
+    setSSaveErr('');
+    setSSaved(false);
+    setEditSentIdx(idx);
+  };
+
+  // 微调编辑值，限制在材料边界内（句子不会跑出本段）
+  const nudgeSent = (field: 'start' | 'end', delta: number) => {
+    const clamp = (v: number) =>
+      Math.min(Math.max(+(v + delta).toFixed(2), material.start), material.end);
+    if (field === 'start') setSEditStart(clamp);
+    else setSEditEnd(clamp);
+  };
+
+  // 试听编辑中的区间（只预览，不改动已保存数据）
+  const previewSentEdit = () => {
+    const ws = wsRef.current;
+    if (!ws || !ready) return;
+    setLoopSentIdx(null);
+    setPlayingSentIdx(null);
+    ws.setTime(Math.max(0, sEditStart));
+    ws.play();
+    previewStopRef.current = sEditEnd;
+  };
+
+  // 保存单句时间：句子时间只影响播放/循环定位，切片文件是材料级的无需重切，
+  // 因此只写 courseware.json，保存即时生效
+  const saveSentEdit = useCallback(async () => {
+    if (sSaving || editSentIdx == null) return;
+    const idx = editSentIdx;
+    const st = Math.min(Math.max(sEditStart, material.start), material.end);
+    const en = Math.min(Math.max(sEditEnd, material.start), material.end);
+    if (en - st < 0.1) {
+      setSSaveErr('终点必须比起点晚至少 0.1 秒');
+      return;
+    }
+    const cw: Courseware = JSON.parse(JSON.stringify(courseware));
+    const m = cw.materials.find((x) => x.id === material.id);
+    if (!m || !m.sentences[idx]) return;
+    m.sentences[idx].start = st;
+    m.sentences[idx].end = en;
+    setSSaving(true);
+    setSSaveErr('');
+    try {
+      await window.api?.saveCourseware(coursewareDir, cw);
+      onCoursewareChange(cw);
+      setSEditStart(st);
+      setSEditEnd(en);
+      setSSaved(true);
+      setTimeout(() => setSSaved(false), 2000);
+    } catch (e: any) {
+      setSSaveErr(e?.message || String(e));
+    } finally {
+      setSSaving(false);
+    }
+  }, [sSaving, editSentIdx, sEditStart, sEditEnd, material, courseware, coursewareDir, onCoursewareChange]);
 
   const checkDictation = (idx: number) => {
     setDictChecked((p) => ({ ...p, [idx]: true }));
@@ -499,8 +583,8 @@ function MaterialDetail({ material, courseware, coursewareDir, onCoursewareChang
 
       <div className="sentence-list">
         {material.sentences.map((s, idx) => (
+          <React.Fragment key={idx}>
           <div
-            key={idx}
             className={`sentence-item ${playingSentIdx === idx ? 'playing' : ''}`}
             onClick={() => playSentence(idx)}
           >
@@ -606,7 +690,62 @@ function MaterialDetail({ material, courseware, coursewareDir, onCoursewareChang
             >
               单句播放
             </button>
+            <button
+              style={{
+                padding: '3px 10px',
+                fontSize: 12,
+                flexShrink: 0,
+                background: editSentIdx === idx ? '#b07a2a' : undefined,
+                color: editSentIdx === idx ? '#fff' : undefined,
+              }}
+              title="自动断句不准？手动调整这一句的起止时间"
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleSentEditor(idx);
+              }}
+            >
+              调时
+            </button>
           </div>
+          {editSentIdx === idx && (
+            <div className="sent-edit-panel">
+              <div className="sent-edit-row">
+                <span className="sent-edit-label">起点(秒)</span>
+                <button onClick={() => nudgeSent('start', -0.5)}>-0.5</button>
+                <button onClick={() => nudgeSent('start', -0.1)}>-0.1</button>
+                <input
+                  type="number"
+                  step={0.05}
+                  value={sEditStart}
+                  onChange={(e) => setSEditStart(parseFloat(e.target.value) || 0)}
+                />
+                <button onClick={() => nudgeSent('start', 0.1)}>+0.1</button>
+                <button onClick={() => nudgeSent('start', 0.5)}>+0.5</button>
+              </div>
+              <div className="sent-edit-row">
+                <span className="sent-edit-label">终点(秒)</span>
+                <button onClick={() => nudgeSent('end', -0.5)}>-0.5</button>
+                <button onClick={() => nudgeSent('end', -0.1)}>-0.1</button>
+                <input
+                  type="number"
+                  step={0.05}
+                  value={sEditEnd}
+                  onChange={(e) => setSEditEnd(parseFloat(e.target.value) || 0)}
+                />
+                <button onClick={() => nudgeSent('end', 0.1)}>+0.1</button>
+                <button onClick={() => nudgeSent('end', 0.5)}>+0.5</button>
+              </div>
+              <div className="sent-edit-row">
+                <button onClick={previewSentEdit}>试听本句</button>
+                <button className="primary" onClick={saveSentEdit} disabled={sSaving}>
+                  {sSaving ? '保存中…' : sSaved ? '✓ 已保存' : '保存本句时间'}
+                </button>
+                <button onClick={() => setEditSentIdx(null)}>收起</button>
+                {sSaveErr && <span style={{ color: '#ff8080', fontSize: 12 }}>{sSaveErr}</span>}
+              </div>
+            </div>
+          )}
+          </React.Fragment>
         ))}
       </div>
     </div>
